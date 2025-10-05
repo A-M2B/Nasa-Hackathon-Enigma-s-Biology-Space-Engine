@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: bioknowledge_postgres
+    environment:
+      POSTGRES_DB: pmc_bioscience
+      POSTGRES_USER: bioscience
+      POSTGRES_PASSWORD: akoredeakorede
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bioscience"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: bioknowledge_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -f http://localhost:9200/_cluster/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.0
+    container_name: bioknowledge_weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: wget --quiet --tries=1 --spider http://localhost:8080/v1/.well-known/ready || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5
+    container_name: bioknowledge_neo4j
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7687:7687"
+      - "7474:7474"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: wget --quiet --tries=1 --spider http://localhost:7474 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+  weaviate_data:
+  neo4j_data:
+  neo4j_logs:
